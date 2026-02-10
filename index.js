@@ -1,6 +1,6 @@
 import express from "express";
 import pkg from "pg";
-import bcrypt from "bcrypt";
+import bcrypt from "bcryptjs";
 import cors from "cors";
 import dotenv from "dotenv";
 
@@ -10,17 +10,23 @@ const { Pool } = pkg;
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-/* Middleware */
+/* =======================
+   Middleware
+======================= */
 app.use(cors());
 app.use(express.json());
 
-/* Database connection */
+/* =======================
+   Database connection
+======================= */
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: { rejectUnauthorized: false }
 });
 
-/* Auto-create table */
+/* =======================
+   Init DB (auto-create table)
+======================= */
 async function initDB() {
   try {
     await pool.query(`
@@ -38,7 +44,6 @@ async function initDB() {
   }
 }
 
-/* Test DB */
 pool.connect()
   .then(() => {
     console.log("✅ Database connected");
@@ -46,12 +51,16 @@ pool.connect()
   })
   .catch(err => console.error("❌ DB connection error", err));
 
-/* Root route */
+/* =======================
+   Root route
+======================= */
 app.get("/", (req, res) => {
   res.send("Backend is running ✅");
 });
 
-/* SIGNUP */
+/* =======================
+   SIGNUP
+======================= */
 app.post("/signup", async (req, res) => {
   const { name, email, password } = req.body;
 
@@ -63,7 +72,7 @@ app.post("/signup", async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, 10);
 
     const result = await pool.query(
-      "INSERT INTO users (name, email, password) VALUES ($1,$2,$3) RETURNING id,name,email",
+      "INSERT INTO users (name, email, password) VALUES ($1,$2,$3) RETURNING id,name,email,created_at",
       [name, email, hashedPassword]
     );
 
@@ -78,7 +87,9 @@ app.post("/signup", async (req, res) => {
   }
 });
 
-/* LOGIN */
+/* =======================
+   LOGIN
+======================= */
 app.post("/login", async (req, res) => {
   const { email, password } = req.body;
 
@@ -101,7 +112,12 @@ app.post("/login", async (req, res) => {
 
     res.json({
       message: "Login successful",
-      user: { id: user.id, name: user.name, email: user.email }
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        created_at: user.created_at
+      }
     });
 
   } catch (err) {
@@ -110,7 +126,24 @@ app.post("/login", async (req, res) => {
   }
 });
 
-/* Start server */
+/* =======================
+   ADMIN: VIEW ALL USERS
+   (TEMPORARY – remove later)
+======================= */
+app.get("/users", async (req, res) => {
+  try {
+    const result = await pool.query(
+      "SELECT id, name, email, created_at FROM users ORDER BY id ASC"
+    );
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ message: "Failed to fetch users" });
+  }
+});
+
+/* =======================
+   Start server
+======================= */
 app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
 });
