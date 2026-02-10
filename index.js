@@ -11,9 +11,12 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 /* =======================
-   Middleware
+   Middleware (FIXED CORS)
 ======================= */
-app.use(cors());
+app.use(cors({
+  origin: "*",
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
+}));
 app.use(express.json());
 
 /* =======================
@@ -59,7 +62,7 @@ app.get("/", (req, res) => {
 });
 
 /* =======================
-   SIGNUP (FIXED)
+   SIGNUP
 ======================= */
 app.post("/signup", async (req, res) => {
   const { name, email, password } = req.body;
@@ -82,7 +85,6 @@ app.post("/signup", async (req, res) => {
     });
 
   } catch (err) {
-    // 🔴 UNIQUE EMAIL ERROR (Postgres)
     if (err.code === "23505") {
       return res.status(409).json({
         message: "Email already in use"
@@ -137,10 +139,37 @@ app.post("/login", async (req, res) => {
    ADMIN – VIEW USERS
 ======================= */
 app.get("/users", async (req, res) => {
-  const result = await pool.query(
-    "SELECT id, name, email, created_at FROM users ORDER BY id ASC"
-  );
-  res.json(result.rows);
+  try {
+    const result = await pool.query(
+      "SELECT id, name, email, created_at FROM users ORDER BY id ASC"
+    );
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ message: "Failed to fetch users" });
+  }
+});
+
+/* =======================
+   DELETE USER (FIXED)
+======================= */
+app.delete("/user/:id", async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const result = await pool.query(
+      "DELETE FROM users WHERE id = $1 RETURNING id",
+      [id]
+    );
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    res.status(200).json({ message: "User deleted successfully" });
+  } catch (err) {
+    console.error("DELETE ERROR:", err);
+    res.status(500).json({ message: "Failed to delete account" });
+  }
 });
 
 /* =======================
