@@ -1,6 +1,6 @@
 import express from "express";
 import pkg from "pg";
-import bcrypt from "bcryptjs";
+import bcrypt from "bcrypt";
 import cors from "cors";
 import dotenv from "dotenv";
 
@@ -14,18 +14,39 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 
-/* Postgres connection */
+/* Database connection */
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: { rejectUnauthorized: false }
 });
 
+/* Auto-create table */
+async function initDB() {
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS users (
+        id SERIAL PRIMARY KEY,
+        name TEXT NOT NULL,
+        email TEXT UNIQUE NOT NULL,
+        password TEXT NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    console.log("✅ users table ready");
+  } catch (err) {
+    console.error("❌ DB init error", err);
+  }
+}
+
 /* Test DB */
 pool.connect()
-  .then(() => console.log("✅ Database connected"))
-  .catch(err => console.error("❌ DB error", err));
+  .then(() => {
+    console.log("✅ Database connected");
+    initDB();
+  })
+  .catch(err => console.error("❌ DB connection error", err));
 
-/* ROOT ROUTE */
+/* Root route */
 app.get("/", (req, res) => {
   res.send("Backend is running ✅");
 });
@@ -89,7 +110,7 @@ app.post("/login", async (req, res) => {
   }
 });
 
-/* START SERVER */
+/* Start server */
 app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
 });
