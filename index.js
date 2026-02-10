@@ -25,7 +25,7 @@ const pool = new Pool({
 });
 
 /* =======================
-   Init DB (auto-create table)
+   Init DB
 ======================= */
 async function initDB() {
   try {
@@ -52,14 +52,14 @@ pool.connect()
   .catch(err => console.error("❌ DB connection error", err));
 
 /* =======================
-   Root route
+   Root
 ======================= */
 app.get("/", (req, res) => {
   res.send("Backend is running ✅");
 });
 
 /* =======================
-   SIGNUP
+   SIGNUP (FIXED)
 ======================= */
 app.post("/signup", async (req, res) => {
   const { name, email, password } = req.body;
@@ -82,8 +82,15 @@ app.post("/signup", async (req, res) => {
     });
 
   } catch (err) {
+    // 🔴 UNIQUE EMAIL ERROR (Postgres)
+    if (err.code === "23505") {
+      return res.status(409).json({
+        message: "Email already in use"
+      });
+    }
+
     console.error(err);
-    res.status(500).json({ message: "User already exists or DB error" });
+    res.status(500).json({ message: "Server error" });
   }
 });
 
@@ -127,18 +134,13 @@ app.post("/login", async (req, res) => {
 });
 
 /* =======================
-   ADMIN: VIEW ALL USERS
-   (TEMPORARY – remove later)
+   ADMIN – VIEW USERS
 ======================= */
 app.get("/users", async (req, res) => {
-  try {
-    const result = await pool.query(
-      "SELECT id, name, email, created_at FROM users ORDER BY id ASC"
-    );
-    res.json(result.rows);
-  } catch (err) {
-    res.status(500).json({ message: "Failed to fetch users" });
-  }
+  const result = await pool.query(
+    "SELECT id, name, email, created_at FROM users ORDER BY id ASC"
+  );
+  res.json(result.rows);
 });
 
 /* =======================
